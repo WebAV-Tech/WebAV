@@ -281,3 +281,138 @@ function idrNALUOffset(
   }
   return -1;
 }
+
+function findGoPByTime(samples: ExtMP4Sample[], time: number) {
+  let startIdx = -1;
+  let endIdx = -1;
+  let hitIdx = -1;
+  for (let i = 0; i < samples.length; i++) {
+    const s = samples[i];
+    if (hitIdx === -1 && time < s.cts) hitIdx = i - 1;
+    if (s.is_idr) {
+      if (hitIdx === -1) {
+        startIdx = i;
+      } else {
+        endIdx = i;
+        break;
+      }
+    }
+  }
+  return { startIdx, endIdx, hitIdx };
+}
+
+function findGoPByIdx(samples: ExtMP4Sample[], idx: number) {
+  let startIdx = -1;
+  let endIdx = -1;
+  for (let i = idx; i >= 0; i--) {
+    if (samples[i].is_idr) {
+      startIdx = i;
+      break;
+    }
+  }
+  for (let i = idx + 1; i < samples.length; i++) {
+    if (samples[i].is_idr) {
+      endIdx = i;
+      break;
+    }
+  }
+  if (endIdx === -1) endIdx = samples.length;
+
+  return { startIdx, endIdx };
+}
+
+function findGoPAndFrame(
+  samples: ExtMP4Sample[],
+  frameOffset: number,
+  baseTime = 0,
+) {
+  const { startIdx: baseGoPStartIdx, endIdx: baseGoPEndIdx } = findGoPByTime(
+    samples,
+    baseTime,
+  );
+  const baseTimeGoP = samples
+    .slice(baseGoPStartIdx, baseGoPEndIdx)
+    .sort((a, b) => a.cts - b.cts);
+  // 解码顺序跟渲染顺序可能有差异，需要排序后再查找，才是精确的索引
+  const baseTimeFrameIdx = findGoPByTime(baseTimeGoP, baseTime).hitIdx;
+
+  const frameIdx = baseTimeFrameIdx + frameOffset;
+  if (frameIdx < 0 || frameIdx >= samples.length) {
+    Log.warn(`frameIdx: ${frameIdx} out of range`);
+    return null;
+  }
+
+  let targetFrameTime = 0;
+  let gopSamples: ExtMP4Sample[] = [];
+  if (frameIdx >= baseGoPStartIdx && frameIdx < baseGoPEndIdx) {
+    targetFrameTime = baseTimeGoP[frameIdx].cts;
+    gopSamples = baseTimeGoP;
+  } else {
+    const { startIdx, endIdx } = findGoPByIdx(samples, frameIdx);
+    gopSamples = samples.slice(startIdx, endIdx);
+    const targetIdx = baseTimeFrameIdx + frameOffset - startIdx;
+    targetFrameTime = samples
+      .slice(startIdx, endIdx)
+      .sort((a, b) => a.cts - b.cts)[targetIdx].cts;
+  }
+
+  return {
+    targetFrameTime,
+    gopSamples,
+  };
+}
+
+export async function decodeFrameByIndex(
+  samples: ExtMP4Sample[],
+  decoderConf: VideoDecoderConfig,
+  localFile: OPFSToolFile,
+  frameOffset: number,
+  opts = { baseTime: 0 },
+) {
+  const { gopSamples, targetFrameTime } =
+    findGoPAndFrame(samples, frameOffset, opts.baseTime) ?? {};
+
+  if (gopSamples == null) {
+    return Promise.reject(Error('decodeFrameByIndex: not found target frame'));
+  }
+
+  const localFileReader = await localFile.createReader();
+  let outputCnt = 0;
+  let done = false;
+
+  return new Promise<VideoFrame>(async (resolve, reject) => {
+    const dec = createVideoDec(decoderConf, false, {
+      onOutput: (vf) => {
+        console.log(222222, vf.timestamp);
+        if (done) {
+          vf.close();
+          return;
+        }
+        if (vf.timestamp === targetFrameTime) {
+          done = true;
+          localFileReader.close();
+          resolve(vf);
+          dec.close();
+          return;
+        }
+
+        vf.close();
+        outputCnt += 1;
+
+        if (outputCnt === gopSamples.length) {
+          done = true;
+          localFileReader.close();
+          reject(Error('decodeFrameByIndex: not found target frame'));
+          return;
+        }
+      },
+      errLogState: (err) => {
+        reject(err);
+        return {
+          trigger: 'decodeFrameByIndex',
+        };
+      },
+    });
+    decodeGoP(dec, await videosamples2Chunks(gopSamples, localFileReader), {});
+  });
+}
