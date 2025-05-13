@@ -109,6 +109,27 @@ document.querySelector('#fontExamp')?.addEventListener('click', () => {
   // })().catch(console.error);
 });
 
+document.querySelector('#screenshot')?.addEventListener('click', () => {
+  (async () => {
+    const spr = new VisibleSprite(
+      new MediaStreamClip(
+        await navigator.mediaDevices.getDisplayMedia({
+          video: true,
+          audio: false,
+        }),
+      ),
+    );
+    spr.setCropRect({ x: 100, y: 100, w: 100, h: 100 });
+
+    // 取消裁剪
+    setTimeout(() => {
+      spr.setCropRect(null);
+    }, 5000);
+
+    await avCvs.addSprite(spr);
+  })().catch(console.error);
+});
+
 let recorder: AVRecorder | null = null;
 document.querySelector('#startRecod')?.addEventListener('click', () => {
   (async () => {

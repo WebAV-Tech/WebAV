@@ -30,12 +30,28 @@ export class VisibleSprite extends BaseSprite {
    */
   visible = true;
 
+  /**
+   * 裁剪区域
+   */
+  cropRect: { x: number; y: number; w: number; h: number } | null = null;
+
+  /**
+   * 素材原始宽度
+   */
+  #naturalWidth = 0;
+  /**
+   * 素材原始高度
+   */
+  #naturalHeight = 0;
+
   constructor(clip: IClip) {
     super();
     this.#clip = clip;
     this.ready = clip.ready.then(({ width, height, duration }) => {
       this.rect.w = this.rect.w === 0 ? width : this.rect.w;
       this.rect.h = this.rect.h === 0 ? height : this.rect.h;
+      this.#naturalWidth = width;
+      this.#naturalHeight = height;
       this.time.duration =
         this.time.duration === 0 ? duration : this.time.duration;
     });
@@ -94,9 +110,32 @@ export class VisibleSprite extends BaseSprite {
     const audio = this.#lastAudio;
     this.#lastAudio = [];
     const video = this.#lastVf;
-    if (video != null) ctx.drawImage(video, -w / 2, -h / 2, w, h);
+    if (video != null) {
+      if (!this.cropRect) {
+        ctx.drawImage(video, -w / 2, -h / 2, w, h);
+      } else {
+        const { x, y, w: cw, h: ch } = this.cropRect;
+        ctx.drawImage(video, x, y, cw, ch, -w / 2, -h / 2, w, h);
+      }
+    }
 
     return { audio };
+  }
+
+  /**
+   * 设置裁剪区域
+   * @param rect
+   */
+  setCropRect(rect: { x: number; y: number; w: number; h: number } | null) {
+    if (rect) {
+      this.cropRect = rect;
+      this.rect.w = rect.w === 0 ? this.#naturalWidth : rect.w;
+      this.rect.h = rect.h === 0 ? this.#naturalHeight : rect.h;
+    } else if (!rect && this.cropRect) {
+      this.cropRect = null;
+      this.rect.w = this.#naturalWidth;
+      this.rect.h = this.#naturalHeight;
+    }
   }
 
   copyStateTo<T extends BaseSprite>(target: T): void {
