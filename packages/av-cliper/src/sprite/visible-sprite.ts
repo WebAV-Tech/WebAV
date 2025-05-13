@@ -33,7 +33,7 @@ export class VisibleSprite extends BaseSprite {
   /**
    * 裁剪区域
    */
-  cropRect: { x: number; y: number; w: number; h: number } | null = null;
+  #cropRect: { x: number; y: number; w: number; h: number } | null = null;
 
   /**
    * 素材原始宽度
@@ -111,10 +111,10 @@ export class VisibleSprite extends BaseSprite {
     this.#lastAudio = [];
     const video = this.#lastVf;
     if (video != null) {
-      if (!this.cropRect) {
+      if (!this.#cropRect) {
         ctx.drawImage(video, -w / 2, -h / 2, w, h);
       } else {
-        const { x, y, w: cw, h: ch } = this.cropRect;
+        const { x, y, w: cw, h: ch } = this.#cropRect;
         ctx.drawImage(video, x, y, cw, ch, -w / 2, -h / 2, w, h);
       }
     }
@@ -128,11 +128,11 @@ export class VisibleSprite extends BaseSprite {
    */
   setCropRect(rect: { x: number; y: number; w: number; h: number } | null) {
     if (rect) {
-      this.cropRect = rect;
+      this.#cropRect = rect;
       this.rect.w = rect.w === 0 ? this.#naturalWidth : rect.w;
       this.rect.h = rect.h === 0 ? this.#naturalHeight : rect.h;
-    } else if (!rect && this.cropRect) {
-      this.cropRect = null;
+    } else if (!rect && this.#cropRect) {
+      this.#cropRect = null;
       this.rect.w = this.#naturalWidth;
       this.rect.h = this.#naturalHeight;
     }
