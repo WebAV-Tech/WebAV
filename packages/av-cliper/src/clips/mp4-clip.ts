@@ -1359,8 +1359,20 @@ function splitVideoSampleByTime(videoSamples: ExtMP4Sample[], time: number) {
   return [preSlice, postSlice];
 }
 
-function splitAudioSampleByTime(audioSamples: ExtMP4Sample[], time: number) {
-  if (audioSamples.length === 0) return [];
+function splitAudioSampleByTime(
+  audioSamples: ExtMP4Sample[],
+  time: number,
+): [ExtMP4Sample[] | undefined, ExtMP4Sample[] | undefined] {
+  if (audioSamples.length === 0) return [undefined, undefined];
+  if (audioSamples[0].cts >= time) {
+    return [undefined, audioSamples.map((s) => ({ ...s }))];
+  }
+
+  const last = audioSamples[audioSamples.length - 1];
+  if (last.cts < time) {
+    return [audioSamples.map((s) => ({ ...s })), undefined];
+  }
+
   let hitIdx = -1;
   for (let i = 0; i < audioSamples.length; i++) {
     const s = audioSamples[i];
