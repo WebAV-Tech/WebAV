@@ -33,15 +33,32 @@ export async function renderTxt2Img(
     onCreated?: (el: HTMLElement) => void;
   } = {},
 ): Promise<HTMLImageElement> {
-  const div = createEl('pre');
-  div.style.cssText = `margin: 0; ${cssText}; position: fixed;`;
-  div.textContent = txt;
-  document.body.appendChild(div);
-  opts.onCreated?.(div);
+  const preEl = createEl('pre');
+  preEl.style.cssText = `margin: 0; ${cssText}; position: fixed;`;
+  preEl.textContent = txt;
+  document.body.appendChild(preEl);
+  opts.onCreated?.(preEl);
 
-  const { width, height } = div.getBoundingClientRect();
+  // 避免重复覆盖其他字体他
+  const tmpFontName = 'TMP_FONT_NAME_' + crypto.randomUUID();
+  let fontFace: FontFace | null = null;
+  // 等待字体加载完成后再计算尺寸
+  if (opts.font != null) {
+    preEl.style.fontFamily = tmpFontName;
+    fontFace = new FontFace(tmpFontName, `url(${opts.font.url})`);
+    await fontFace.load();
+    // @ts-expect-error https://developer.mozilla.org/en-US/docs/Web/API/FontFaceSet/add
+    document.fonts.add(fontFace);
+    await document.fonts.ready;
+  }
+
+  const { width, height } = preEl.getBoundingClientRect();
   // 计算出 rect，立即从dom移除
-  div.remove();
+  preEl.remove();
+  if (fontFace != null) {
+    // @ts-expect-error https://developer.mozilla.org/en-US/docs/Web/API/FontFaceSet/delete
+    document.fonts.delete(fontFace);
+  }
 
   const img = new Image();
   img.width = width;
@@ -51,7 +68,7 @@ export async function renderTxt2Img(
       ? ''
       : `
     @font-face {
-      font-family: '${opts.font.name}';
+      font-family: '${tmpFontName}';
       src: url('data:font/woff2;base64,${arrayBufferToBase64(await (await fetch(opts.font.url)).arrayBuffer())}') format('woff2');
     }
   `;
@@ -61,7 +78,7 @@ export async function renderTxt2Img(
         ${fontFaceStr}
       </style>
       <foreignObject width="100%" height="100%">
-        <div xmlns="http://www.w3.org/1999/xhtml">${div.outerHTML}</div>
+        <div xmlns="http://www.w3.org/1999/xhtml">${preEl.outerHTML}</div>
       </foreignObject>
     </svg>
   `
