@@ -1,5 +1,7 @@
 # @webav/internal-utils
 
+## 1.2.8
+
 ## 1.2.7
 
 ## 1.2.6

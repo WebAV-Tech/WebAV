@@ -1,5 +1,13 @@
 # @webav/av-cliper
 
+## 1.2.8
+
+### Patch Changes
+
+- 697fc57: fix: maybe throw Error when splitAudioSampleByTime
+- fc4f0cd: fix: renderTxt2ImgBitmap width/height maybe incorrect when custom fontFamily
+  - @webav/internal-utils@1.2.8
+
 ## 1.2.7
 
 ### Patch Changes
