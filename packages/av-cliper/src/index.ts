@@ -17,3 +17,5 @@ export { Rect } from './sprite/rect';
 export { VisibleSprite } from './sprite/visible-sprite';
 
 export { Log } from '@webav/internal-utils';
+
+export { SpeedAudioClip, createSpeedAudioClip } from './clips/speed-audio-clip';
