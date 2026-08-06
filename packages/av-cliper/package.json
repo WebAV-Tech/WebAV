@@ -44,5 +44,13 @@
     "@webav/mp4box.js": "^0.5.7",
     "opfs-tools": "^0.7.2",
     "wave-resampler": "^1.0.0"
+  },
+  "peerDependencies": {
+    "soundtouch-ts": "^1.0.0"
+  },
+  "peerDependenciesMeta": {
+    "soundtouch-ts": {
+      "optional": true
+    }
   }
 }
