@@ -106,6 +106,10 @@ export abstract class BaseSprite {
     const {
       rect: { center, angle },
     } = this;
+    // 高质量缩放，避免缩小画面时出现模糊 (#482)
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = 'high';
+
     ctx.setTransform(
       // 水平 缩放、倾斜
       this.flip === 'horizontal' ? -1 : 1,
@@ -198,6 +202,25 @@ export abstract class BaseSprite {
     target.opacity = this.opacity;
     target.flip = this.flip;
     target.rect = this.rect.clone();
+    target.time = { ...this.time };
+  }
+
+  /**
+   * 仅拷贝变换属性（位置、旋转），保留目标 sprite 自身的尺寸。
+   *
+   * 适用于替换素材等场景：新 sprite 的自然尺寸与原 sprite 不同，
+   * 使用 copyStateTo 会覆盖尺寸导致画面拉伸/压缩，此时应使用本方法。
+   * @see https://github.com/WebAV-Tech/WebAV/issues/481
+   */
+  copyTransformTo<T extends BaseSprite>(target: T) {
+    target.#animatKeyFrame = this.#animatKeyFrame;
+    target.#animatOpts = this.#animatOpts;
+    target.zIndex = this.zIndex;
+    target.opacity = this.opacity;
+    target.flip = this.flip;
+    target.rect.x = this.rect.x;
+    target.rect.y = this.rect.y;
+    target.rect.angle = this.rect.angle;
     target.time = { ...this.time };
   }
 
